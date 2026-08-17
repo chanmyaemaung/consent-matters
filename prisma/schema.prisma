@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Settings {
+  id              String   @id @default(cuid())
+  shop            String   @unique
+  bannerEnabled   Boolean  @default(true)
+
+  // "auto" = follow Shopify Customer Privacy regions, "all" = every visitor,
+  // "custom" = only the ISO country codes stored in `countries` (JSON array)
+  targetingMode   String   @default("auto")
+  countries       String   @default("[]")
+
+  autoMatchTheme  Boolean  @default(true)
+  bgColor         String   @default("#ffffff")
+  textColor       String   @default("#202223")
+  acceptBgColor   String   @default("#111213")
+  acceptTextColor String   @default("#ffffff")
+  // "bar-bottom" | "bar-top" | "card-left" | "card-right"
+  position        String   @default("bar-bottom")
+
+  bannerText      String   @default("We use cookies to improve your experience, analyze traffic, and personalize marketing. You can accept, decline, or manage your preferences.")
+  acceptLabel     String   @default("Accept")
+  declineLabel    String   @default("Decline")
+  prefsLabel      String   @default("Manage preferences")
+  policyLink      String?
+  showReopen      Boolean  @default(true)
+  reopenLabel     String   @default("Cookie settings")
+
+  modalTitle      String   @default("Privacy preferences")
+  modalIntro      String   @default("Choose which cookies you allow. Essential cookies are always on — the store cannot work without them.")
+  saveLabel       String   @default("Save choices")
+  acceptAllLabel  String   @default("Accept all")
+
+  onboardingDismissed Boolean @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}

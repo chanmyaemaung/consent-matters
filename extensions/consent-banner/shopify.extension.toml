@@ -1,0 +1,7 @@
+api_version = "2025-10"
+
+[[extensions]]
+name = "Consent Matters Banner"
+handle = "consent-banner"
+uid = "e0d07118-eb28-ddbf-ffcb-df23d1725298dd0b4f09"
+type = "theme"

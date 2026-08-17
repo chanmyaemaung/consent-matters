@@ -1,0 +1,55 @@
+{%- comment -%}
+  Consent Matters app embed. Config is written to an app-owned shop
+  metafield by the app backend; when liquid can't read it, the script
+  falls back to the app proxy. The marker comment makes "is the embed
+  active?" answerable from page source.
+{%- endcomment -%}
+{%- assign cfg = app.metafields.settings.config.value -%}
+{%- if cfg == blank -%}
+  {%- assign cfg = app.metafields.settings.config -%}
+{%- endif -%}
+{%- comment -%}
+  Fallback: read the shop metafield through its resolved app-owned
+  namespace (app id is stable for this app's lifetime).
+{%- endcomment -%}
+{%- if cfg == blank -%}
+  {%- assign cfg = shop.metafields['app--411563556865--settings']['config'].value -%}
+{%- endif -%}
+{%- if cfg == blank -%}
+  {%- assign cfg = shop.metafields['app--411563556865--settings']['config'] -%}
+{%- endif -%}
+<!-- consent-matters embed active -->
+{%- unless cfg and cfg.en == 0 -%}
+<script>
+/* Consent Matters: synchronous blocking seed. Must run before any theme
+   tag executes, so it is inline in compliance_head — the banner UI loads
+   deferred below. */
+(function(){
+  if (window.__cmSeeded) return;
+  window.__cmSeeded = true;
+  window.dataLayer = window.dataLayer || [];
+  if (!window.gtag) { window.gtag = function(){ window.dataLayer.push(arguments); }; }
+  window.gtag('consent', 'default', {
+    ad_storage: 'denied', ad_user_data: 'denied',
+    ad_personalization: 'denied', analytics_storage: 'denied',
+    wait_for_update: 500
+  });
+  if (!window.fbq) {
+    var n = window.fbq = function(){ n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); };
+    if (!window._fbq) window._fbq = n;
+    n.push = n; n.loaded = true; n.version = '2.0'; n.queue = [];
+  }
+  window.fbq('consent', 'revoke');
+})();
+</script>
+{%- endunless -%}
+<script type="application/json" id="cm-cfg">{% if cfg %}{{ cfg | json }}{% else %}{}{% endif %}</script>
+<script src="{{ 'consent-banner.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Consent Matters banner",
+  "target": "compliance_head",
+  "settings": []
+}
+{% endschema %}
