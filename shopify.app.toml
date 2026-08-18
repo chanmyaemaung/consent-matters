@@ -2,7 +2,7 @@
 
 client_id = "bf8394145f6e6967e5cef51ba50aaeb6"
 name = "Consent Matters"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://consent-matters.myanmarnode.com"
 embedded = true
 
 [access_scopes]
@@ -25,14 +25,14 @@ api_version = "2026-10"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [ "https://consent-matters.myanmarnode.com/auth/callback" ]
 
-# NOTE: during dev the proxy url must be the current tunnel (the CLI does
-# not auto-update it); replace with the production host before launch.
 [app_proxy]
-url = "https://title-extending-admissions-hair.trycloudflare.com"
+url = "https://consent-matters.myanmarnode.com"
 prefix = "apps"
 subpath = "consent-matters"
 
 [build]
-automatically_update_urls_on_dev = true
+# Keep production URLs stable — never let `shopify app dev` overwrite
+# them with a tunnel host. Dev sessions still work via their own draft.
+automatically_update_urls_on_dev = false
