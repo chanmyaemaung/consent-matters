@@ -53,6 +53,9 @@ export default function App() {
             impact on store speed. No plans, no trials, no upsells.
           </li>
         </ul>
+        <p>
+          <a href="/privacy">Privacy policy</a>
+        </p>
       </div>
     </div>
   );

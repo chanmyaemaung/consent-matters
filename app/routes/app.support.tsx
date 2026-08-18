@@ -65,6 +65,14 @@ export default function Support() {
                 LinkedIn — chanlay
               </s-link>
             </s-list-item>
+            <s-list-item>
+              <s-link
+                href="https://consent-matters.myanmarnode.com/privacy"
+                target="_blank"
+              >
+                Privacy policy
+              </s-link>
+            </s-list-item>
           </s-unordered-list>
         </s-stack>
       </s-section>
