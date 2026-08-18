@@ -1,9 +1,8 @@
-import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
 // Public privacy policy — required for the Shopify App Store listing.
 // Served outside the embedded admin, so no auth and no Polaris.
-export const loader = async (_: LoaderFunctionArgs) => {
+export const loader = async () => {
   return { supportEmail: process.env.SUPPORT_EMAIL ?? "" };
 };
 

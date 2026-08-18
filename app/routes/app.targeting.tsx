@@ -1,17 +1,21 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
+import { Await, useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { getSettings } from "../models";
 import { handleSettingsAction } from "../lib/settings-action.server";
 import { useSettingsForm } from "../hooks/useSettingsForm";
-import { SettingsSaveBar } from "../components";
+import {
+  SettingsLoadError,
+  SettingsSaveBar,
+  TargetingSkeleton,
+} from "../components";
 import {
   COUNTRIES,
   COUNTRY_NAME_BY_CODE,
@@ -19,13 +23,20 @@ import {
 } from "../data/countries";
 import type { SettingsErrors } from "../types";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const settings = await getSettings(session.shop);
+async function loadTargetingData(shop: string) {
+  const settings = await getSettings(shop);
   return {
     targetingMode: settings.targetingMode,
     countries: JSON.parse(settings.countries) as string[],
   };
+}
+
+type TargetingData = Awaited<ReturnType<typeof loadTargetingData>>;
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  // Not awaited — streams after the shell so the skeleton can paint first.
+  return { settings: loadTargetingData(session.shop) };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) =>
@@ -35,7 +46,20 @@ export const action = async ({ request }: ActionFunctionArgs) =>
   }));
 
 export default function Targeting() {
-  const initial = useLoaderData<typeof loader>();
+  const { settings } = useLoaderData<typeof loader>();
+
+  return (
+    <s-page heading="Targeting">
+      <Suspense fallback={<TargetingSkeleton />}>
+        <Await resolve={settings} errorElement={<SettingsLoadError />}>
+          {(data) => <TargetingForm data={data} />}
+        </Await>
+      </Suspense>
+    </s-page>
+  );
+}
+
+function TargetingForm({ data: initial }: { data: TargetingData }) {
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
   const { values, setValue, isDirty, discard } = useSettingsForm(initial);
@@ -66,7 +90,7 @@ export default function Targeting() {
   };
 
   return (
-    <s-page heading="Targeting">
+    <>
       <SettingsSaveBar
         isDirty={isDirty}
         saving={isSaving}
@@ -170,7 +194,7 @@ export default function Targeting() {
           </s-stack>
         )}
       </s-section>
-    </s-page>
+    </>
   );
 }
 

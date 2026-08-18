@@ -1,15 +1,16 @@
-import { useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useFetcher, useLoaderData, useNavigate } from "react-router";
+import { Await, useFetcher, useLoaderData, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { dismissOnboarding, getSettings } from "../models";
 import { handleSettingsAction } from "../lib/settings-action.server";
+import { HomeSkeleton, SettingsLoadError } from "../components";
 import { COUNTRY_NAME_BY_CODE } from "../data/countries";
 
 const LAYOUT_LABELS: Record<string, string> = {
@@ -19,16 +20,20 @@ const LAYOUT_LABELS: Record<string, string> = {
   "card-right": "Card · right",
 };
 
+async function loadHomeSettings(shop: string) {
+  const settings = await getSettings(shop);
+  return {
+    ...settings,
+    countries: JSON.parse(settings.countries) as string[],
+  };
+}
+
+type HomeSettings = Awaited<ReturnType<typeof loadHomeSettings>>;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const settings = await getSettings(session.shop);
-  return {
-    settings: {
-      ...settings,
-      countries: JSON.parse(settings.countries) as string[],
-    },
-    shop: session.shop,
-  };
+  // Not awaited — streams after the shell so the skeleton can paint first.
+  return { settings: loadHomeSettings(session.shop), shop: session.shop };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -46,13 +51,106 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Home() {
   const { settings, shop } = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
+
+  const storefrontUrl = `https://${shop}/?cm_preview=1`;
+
+  return (
+    <s-page heading="Consent Matters">
+      <s-button slot="primary-action" href={storefrontUrl} target="_blank">
+        View storefront
+      </s-button>
+
+      <Suspense fallback={<HomeSkeleton />}>
+        <Await resolve={settings} errorElement={<SettingsLoadError />}>
+          {(data) => <HomeStatus settings={data} shop={shop} />}
+        </Await>
+      </Suspense>
+
+      <s-section heading="Manage">
+        <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
+          <s-clickable
+            padding="base"
+            borderWidth="base"
+            borderRadius="base"
+            onClick={() => navigate("/app/targeting")}
+          >
+            <s-stack direction="block" gap="small-200">
+              <s-icon type="globe" size="base" />
+              <s-heading>Targeting</s-heading>
+              <s-text color="subdued">Who sees the banner</s-text>
+            </s-stack>
+          </s-clickable>
+          <s-clickable
+            padding="base"
+            borderWidth="base"
+            borderRadius="base"
+            onClick={() => navigate("/app/appearance")}
+          >
+            <s-stack direction="block" gap="small-200">
+              <s-icon type="paint-brush-round" size="base" />
+              <s-heading>Appearance</s-heading>
+              <s-text color="subdued">Colors, layout, preview</s-text>
+            </s-stack>
+          </s-clickable>
+          <s-clickable
+            padding="base"
+            borderWidth="base"
+            borderRadius="base"
+            onClick={() => navigate("/app/content")}
+          >
+            <s-stack direction="block" gap="small-200">
+              <s-icon type="note" size="base" />
+              <s-heading>Content</s-heading>
+              <s-text color="subdued">Banner &amp; dialog texts</s-text>
+            </s-stack>
+          </s-clickable>
+        </s-grid>
+      </s-section>
+
+      <s-section slot="aside" heading="How it works">
+        <s-unordered-list>
+          <s-list-item>Add your tracking the normal way</s-list-item>
+          <s-list-item>We block it until visitors consent</s-list-item>
+          <s-list-item>Zero impact on store speed</s-list-item>
+        </s-unordered-list>
+        <s-paragraph color="subdued">
+          Tip: install Google &amp; Meta through their official channel apps
+          for the strongest blocking — Shopify holds those until consent.
+        </s-paragraph>
+      </s-section>
+
+      <s-section slot="aside" heading="100% free — forever">
+        <s-stack direction="block" gap="base">
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            <s-icon type="heart" size="base" />
+            <s-badge tone="success">All features included</s-badge>
+          </s-stack>
+          <s-paragraph>
+            No plans, no trials, no upsells — built as a gift to the Shopify
+            community. If it saves you money, that&apos;s the point.
+          </s-paragraph>
+          <s-paragraph>
+            <s-link href="/app/support">About &amp; support →</s-link>
+          </s-paragraph>
+        </s-stack>
+      </s-section>
+    </s-page>
+  );
+}
+
+function HomeStatus({
+  settings,
+  shop,
+}: {
+  settings: HomeSettings;
+  shop: string;
+}) {
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
-  const navigate = useNavigate();
 
   const themeEditorUrl = `https://${shop}/admin/themes/current/editor?context=apps`;
   const privacySettingsUrl = `https://${shop}/admin/settings/customer_privacy`;
-  const storefrontUrl = `https://${shop}/?cm_preview=1`;
 
   const syncError =
     (fetcher.data && "syncError" in fetcher.data && fetcher.data.syncError) ||
@@ -80,11 +178,7 @@ export default function Home() {
   }, [settings]);
 
   return (
-    <s-page heading="Consent Matters">
-      <s-button slot="primary-action" href={storefrontUrl} target="_blank">
-        View storefront
-      </s-button>
-
+    <>
       {syncError && (
         <s-banner
           heading="Saved, but publishing to your storefront failed"
@@ -174,76 +268,7 @@ export default function Home() {
           </s-grid>
         </s-stack>
       </s-section>
-
-      <s-section heading="Manage">
-        <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
-          <s-clickable
-            padding="base"
-            borderWidth="base"
-            borderRadius="base"
-            onClick={() => navigate("/app/targeting")}
-          >
-            <s-stack direction="block" gap="small-200">
-              <s-icon type="globe" size="base" />
-              <s-heading>Targeting</s-heading>
-              <s-text color="subdued">Who sees the banner</s-text>
-            </s-stack>
-          </s-clickable>
-          <s-clickable
-            padding="base"
-            borderWidth="base"
-            borderRadius="base"
-            onClick={() => navigate("/app/appearance")}
-          >
-            <s-stack direction="block" gap="small-200">
-              <s-icon type="paint-brush-round" size="base" />
-              <s-heading>Appearance</s-heading>
-              <s-text color="subdued">Colors, layout, preview</s-text>
-            </s-stack>
-          </s-clickable>
-          <s-clickable
-            padding="base"
-            borderWidth="base"
-            borderRadius="base"
-            onClick={() => navigate("/app/content")}
-          >
-            <s-stack direction="block" gap="small-200">
-              <s-icon type="note" size="base" />
-              <s-heading>Content</s-heading>
-              <s-text color="subdued">Banner &amp; dialog texts</s-text>
-            </s-stack>
-          </s-clickable>
-        </s-grid>
-      </s-section>
-
-      <s-section slot="aside" heading="How it works">
-        <s-unordered-list>
-          <s-list-item>Add your tracking the normal way</s-list-item>
-          <s-list-item>We block it until visitors consent</s-list-item>
-          <s-list-item>Zero impact on store speed</s-list-item>
-        </s-unordered-list>
-        <s-paragraph color="subdued">
-          Tip: install Google &amp; Meta through their official channel apps
-          for the strongest blocking — Shopify holds those until consent.
-        </s-paragraph>
-      </s-section>
-
-      <s-section slot="aside" heading="100% free — forever">
-        <s-stack direction="block" gap="base">
-          <s-stack direction="inline" gap="small-200" alignItems="center">
-            <s-icon type="heart" size="base" />
-            <s-badge tone="success">All features included</s-badge>
-          </s-stack>
-          <s-paragraph>
-            No plans, no trials, no upsells — built as a gift to the Shopify
-            community. If it saves you money, that&apos;s the point.
-          </s-paragraph>
-          <s-paragraph>
-            <s-link href="/app/support">About &amp; support →</s-link>
-          </s-paragraph>
-        </s-stack>
-      </s-section>
-    </s-page>
+    </>
   );
 }
 

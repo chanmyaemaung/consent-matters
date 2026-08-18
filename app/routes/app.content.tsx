@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
+import { Await, useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -12,15 +12,16 @@ import { getSettings } from "../models";
 import { handleSettingsAction } from "../lib/settings-action.server";
 import { useSettingsForm } from "../hooks/useSettingsForm";
 import {
+  ContentSkeleton,
   DialogPreview,
   RichTextField,
+  SettingsLoadError,
   SettingsSaveBar,
 } from "../components";
 import type { SettingsErrors } from "../types";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const s = await getSettings(session.shop);
+async function loadContentData(shop: string) {
+  const s = await getSettings(shop);
   return {
     form: {
       bannerText: s.bannerText,
@@ -43,6 +44,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       acceptTextColor: s.acceptTextColor,
     },
   };
+}
+
+type ContentData = Awaited<ReturnType<typeof loadContentData>>;
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  // Not awaited — streams after the shell so the skeleton can paint first.
+  return { settings: loadContentData(session.shop) };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) =>
@@ -61,7 +70,20 @@ export const action = async ({ request }: ActionFunctionArgs) =>
   }));
 
 export default function Content() {
-  const { form, colors } = useLoaderData<typeof loader>();
+  const { settings } = useLoaderData<typeof loader>();
+
+  return (
+    <s-page heading="Content">
+      <Suspense fallback={<ContentSkeleton />}>
+        <Await resolve={settings} errorElement={<SettingsLoadError />}>
+          {(data) => <ContentForm data={data} />}
+        </Await>
+      </Suspense>
+    </s-page>
+  );
+}
+
+function ContentForm({ data: { form, colors } }: { data: ContentData }) {
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
   const { values, setValue, isDirty, discard } = useSettingsForm(form);
@@ -82,7 +104,7 @@ export default function Content() {
     });
 
   return (
-    <s-page heading="Content">
+    <>
       <SettingsSaveBar
         isDirty={isDirty}
         saving={isSaving}
@@ -206,7 +228,7 @@ export default function Content() {
           />
         </s-stack>
       </s-section>
-    </s-page>
+    </>
   );
 }
 
