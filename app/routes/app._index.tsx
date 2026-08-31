@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
@@ -12,6 +12,48 @@ import { dismissOnboarding, getSettings } from "../models";
 import { handleSettingsAction } from "../lib/settings-action.server";
 import { HomeSkeleton, SettingsLoadError } from "../components";
 import { COUNTRY_NAME_BY_CODE } from "../data/countries";
+
+// The embed block's file name in extensions/consent-banner/blocks.
+const EMBED_HANDLE = "consent-banner";
+
+/**
+ * Reports whether the merchant has switched the theme app embed on, using
+ * App Bridge's extension activation data. `null` while the answer is still
+ * being fetched, so the UI can hold its layout instead of shifting.
+ */
+function useAppEmbedEnabled(shopify: ReturnType<typeof useAppBridge>) {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const extensions = await shopify.app.extensions();
+        if (cancelled) return;
+        setEnabled(
+          extensions.some(
+            (extension) =>
+              extension.type === "theme_app_extension" &&
+              extension.activations.some(
+                (activation) =>
+                  "handle" in activation && activation.handle === EMBED_HANDLE,
+              ),
+          ),
+        );
+      } catch {
+        // Treat an unavailable answer as "don't nag" rather than "not enabled".
+        if (!cancelled) setEnabled(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shopify]);
+
+  return enabled;
+}
 
 const LAYOUT_LABELS: Record<string, string> = {
   "bar-bottom": "Bar · bottom",
@@ -68,7 +110,10 @@ export default function Home() {
       </Suspense>
 
       <s-section heading="Manage">
-        <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
+        <s-grid
+          gridTemplateColumns="@container (inline-size > 700px) 1fr 1fr 1fr, 1fr"
+          gap="base"
+        >
           <s-clickable
             padding="base"
             borderWidth="base"
@@ -115,8 +160,8 @@ export default function Home() {
           <s-list-item>Zero impact on store speed</s-list-item>
         </s-unordered-list>
         <s-paragraph color="subdued">
-          Tip: install Google &amp; Meta through their official channel apps
-          for the strongest blocking — Shopify holds those until consent.
+          Tip: install Google &amp; Meta through their official channel apps for
+          the strongest blocking — Shopify holds those until consent.
         </s-paragraph>
       </s-section>
 
@@ -166,12 +211,31 @@ function HomeStatus({
     ? fetcher.formData.get("bannerEnabled") === "true"
     : settings.bannerEnabled;
 
+  // Shopify expects the home page to report whether the theme app embed is
+  // actually switched on, rather than only telling merchants to go do it.
+  const embedEnabled = useAppEmbedEnabled(shopify);
+  const needsEmbed = optimisticEnabled && embedEnabled === false;
+
+  const statusLabel = !optimisticEnabled
+    ? "Off"
+    : needsEmbed
+      ? "Action needed"
+      : "Live";
+  const statusTone = !optimisticEnabled
+    ? "neutral"
+    : needsEmbed
+      ? "warning"
+      : "success";
+
   const targetingLabel = useMemo(() => {
     if (settings.targetingMode === "all") return "All visitors";
     if (settings.targetingMode === "custom") {
       const n = settings.countries.length;
       if (n === 0) return "No countries yet";
-      if (n === 1) return COUNTRY_NAME_BY_CODE[settings.countries[0]] ?? settings.countries[0];
+      if (n === 1)
+        return (
+          COUNTRY_NAME_BY_CODE[settings.countries[0]] ?? settings.countries[0]
+        );
       return `${n} countries`;
     }
     return "Automatic";
@@ -188,7 +252,9 @@ function HomeStatus({
         </s-banner>
       )}
 
-      {!settings.onboardingDismissed && (
+      {/* Only ever one banner at a time — a sync failure is the more urgent
+          message, so it replaces the setup guidance while it is showing. */}
+      {!syncError && !settings.onboardingDismissed && (
         <s-banner
           heading="Get set up in 2 steps"
           tone="info"
@@ -217,13 +283,15 @@ function HomeStatus({
         <s-stack direction="block" gap="large">
           <s-stack direction="inline" gap="base" alignItems="center">
             <s-icon
-              type={optimisticEnabled ? "shield-check-mark" : "shield-none"}
+              type={
+                optimisticEnabled && !needsEmbed
+                  ? "shield-check-mark"
+                  : "shield-none"
+              }
               size="base"
             />
             <s-heading>Consent banner</s-heading>
-            <s-badge tone={optimisticEnabled ? "success" : "neutral"}>
-              {optimisticEnabled ? "Live" : "Off"}
-            </s-badge>
+            <s-badge tone={statusTone}>{statusLabel}</s-badge>
             <s-switch
               label="Consent banner"
               labelAccessibilityVisibility="exclusive"
@@ -237,34 +305,49 @@ function HomeStatus({
             />
           </s-stack>
 
-          <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-stack direction="block" gap="small-300">
-              <s-text color="subdued">Protection</s-text>
-              <s-heading>{optimisticEnabled ? "Active" : "Paused"}</s-heading>
-              <s-text color="subdued">
-                {optimisticEnabled
-                  ? "Tracking blocked until consent"
-                  : "No blocking, no banner"}
-              </s-text>
-            </s-stack>
-          </s-box>
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-stack direction="block" gap="small-300">
-              <s-text color="subdued">Targeting</s-text>
-              <s-heading>{targetingLabel}</s-heading>
-              <s-link href="/app/targeting">Change</s-link>
-            </s-stack>
-          </s-box>
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-stack direction="block" gap="small-300">
-              <s-text color="subdued">Layout</s-text>
-              <s-heading>
-                {LAYOUT_LABELS[settings.position] ?? settings.position}
-              </s-heading>
-              <s-link href="/app/appearance">Change</s-link>
-            </s-stack>
-          </s-box>
+          <s-grid
+            gridTemplateColumns="@container (inline-size > 700px) 1fr 1fr 1fr, 1fr"
+            gap="base"
+          >
+            <s-box padding="base" borderWidth="base" borderRadius="base">
+              <s-stack direction="block" gap="small-300">
+                <s-text color="subdued">Theme app embed</s-text>
+                <s-heading>
+                  {embedEnabled === null
+                    ? "Checking…"
+                    : embedEnabled
+                      ? "Enabled"
+                      : "Not enabled"}
+                </s-heading>
+                {embedEnabled === false ? (
+                  <s-link href={themeEditorUrl} target="_blank">
+                    Enable it
+                  </s-link>
+                ) : (
+                  <s-text color="subdued">
+                    {optimisticEnabled
+                      ? "Tracking blocked until consent"
+                      : "No blocking, no banner"}
+                  </s-text>
+                )}
+              </s-stack>
+            </s-box>
+            <s-box padding="base" borderWidth="base" borderRadius="base">
+              <s-stack direction="block" gap="small-300">
+                <s-text color="subdued">Targeting</s-text>
+                <s-heading>{targetingLabel}</s-heading>
+                <s-link href="/app/targeting">Change</s-link>
+              </s-stack>
+            </s-box>
+            <s-box padding="base" borderWidth="base" borderRadius="base">
+              <s-stack direction="block" gap="small-300">
+                <s-text color="subdued">Layout</s-text>
+                <s-heading>
+                  {LAYOUT_LABELS[settings.position] ?? settings.position}
+                </s-heading>
+                <s-link href="/app/appearance">Change</s-link>
+              </s-stack>
+            </s-box>
           </s-grid>
         </s-stack>
       </s-section>

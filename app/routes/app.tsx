@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Outlet, useLoaderData, useRouteError } from "react-router";
+import { Outlet, useNavigate, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -9,16 +9,15 @@ import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
-
-  // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return null;
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
-
+  // App Bridge itself is loaded from the document head in root.tsx, so this
+  // provider only contributes the Polaris web components script.
   return (
-    <AppProvider embedded apiKey={apiKey}>
+    <AppProvider embedded={false}>
+      <AdminNavigation />
       <SessionTokenPing />
       <s-app-nav>
         <s-link href="/app">Home</s-link>
@@ -30,6 +29,31 @@ export default function App() {
       <Outlet />
     </AppProvider>
   );
+}
+
+/**
+ * Turns App Bridge navigation events into client-side React Router
+ * navigations. AppProvider does this itself when it renders the App Bridge
+ * script, which it no longer does here.
+ */
+function AdminNavigation() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleNavigate = (event: Event) => {
+      const href = (event.target as Element | null)?.getAttribute("href");
+      if (href) {
+        navigate(href);
+      }
+    };
+
+    document.addEventListener("shopify:navigate", handleNavigate);
+    return () => {
+      document.removeEventListener("shopify:navigate", handleNavigate);
+    };
+  }, [navigate]);
+
+  return null;
 }
 
 /**

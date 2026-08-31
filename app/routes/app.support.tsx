@@ -4,7 +4,7 @@ import { authenticate } from "../shopify.server";
 import { useLoaderData } from "react-router";
 import { SUPPORT_GITHUB, SUPPORT_PAGE } from "../components";
 
-const LINKEDIN_URL = "https://www.linkedin.com/in/chanlay/";
+const LINKEDIN_URL = "https://go.myanmarnode.com/NsSgYYg";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);

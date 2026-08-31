@@ -74,5 +74,5 @@ stays free either way.
 Built by **Chan Lay** — a full-stack developer from Myanmar 🇲🇲 building
 lightweight, merchant-friendly apps for Shopify.
 
-[GitHub](https://github.com/chanmyaemaung) ·
-[LinkedIn](https://www.linkedin.com/in/chanlay/)
+[GitHub](https://go.myanmarnode.com/fYAqD25) ·
+[LinkedIn](https://go.myanmarnode.com/NsSgYYg)

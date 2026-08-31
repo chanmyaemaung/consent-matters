@@ -99,9 +99,12 @@ function ContentForm({ data: { form, colors } }: { data: ContentData }) {
   }, [fetcher.state, fetcher.data, shopify]);
 
   const save = () =>
-    fetcher.submit({ ...values, showReopen: String(values.showReopen) }, {
-      method: "POST",
-    });
+    fetcher.submit(
+      { ...values, showReopen: String(values.showReopen) },
+      {
+        method: "POST",
+      },
+    );
 
   return (
     <>
@@ -137,7 +140,10 @@ function ContentForm({ data: { form, colors } }: { data: ContentData }) {
             error={errors.bannerText ?? ""}
             details="Bold, italic, and links are supported."
           />
-          <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+          <s-grid
+            gridTemplateColumns="@container (inline-size > 500px) 1fr 1fr, 1fr"
+            gap="base"
+          >
             <s-text-field
               label="Accept button"
               value={values.acceptLabel}
@@ -198,7 +204,10 @@ function ContentForm({ data: { form, colors } }: { data: ContentData }) {
             error={errors.modalIntro ?? ""}
             details="Bold, italic, and links are supported."
           />
-          <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+          <s-grid
+            gridTemplateColumns="@container (inline-size > 500px) 1fr 1fr, 1fr"
+            gap="base"
+          >
             <s-text-field
               label="Save button"
               value={values.saveLabel}
@@ -214,19 +223,23 @@ function ContentForm({ data: { form, colors } }: { data: ContentData }) {
               error={errors.acceptAllLabel ?? ""}
             />
           </s-grid>
-
-          <DialogPreview
-            autoMatchTheme={colors.autoMatchTheme}
-            bgColor={colors.bgColor}
-            textColor={colors.textColor}
-            acceptBgColor={colors.acceptBgColor}
-            acceptTextColor={colors.acceptTextColor}
-            modalTitle={values.modalTitle}
-            modalIntro={values.modalIntro}
-            saveLabel={values.saveLabel}
-            acceptAllLabel={values.acceptAllLabel}
-          />
         </s-stack>
+      </s-section>
+
+      {/* Aside so the preview stays beside the controls on desktop; Polaris
+          stacks it below them on narrow screens. */}
+      <s-section slot="aside" heading="Preview">
+        <DialogPreview
+          autoMatchTheme={colors.autoMatchTheme}
+          bgColor={colors.bgColor}
+          textColor={colors.textColor}
+          acceptBgColor={colors.acceptBgColor}
+          acceptTextColor={colors.acceptTextColor}
+          modalTitle={values.modalTitle}
+          modalIntro={values.modalIntro}
+          saveLabel={values.saveLabel}
+          acceptAllLabel={values.acceptAllLabel}
+        />
       </s-section>
     </>
   );

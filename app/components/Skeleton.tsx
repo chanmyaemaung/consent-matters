@@ -49,7 +49,10 @@ export function HomeSkeleton() {
             <SkeletonBone width="48px" height="20px" radius="10px" />
             <SkeletonBone width="36px" height="20px" radius="10px" />
           </s-stack>
-          <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
+          <s-grid
+            gridTemplateColumns="@container (inline-size > 700px) 1fr 1fr 1fr, 1fr"
+            gap="base"
+          >
             {[0, 1, 2].map((i) => (
               <s-box
                 key={i}
@@ -73,22 +76,29 @@ export function HomeSkeleton() {
 
 export function AppearanceSkeleton() {
   return (
-    <s-section>
-      <div role="status" aria-label="Loading settings">
-        <s-stack direction="block" gap="base">
-          <SkeletonBone width="20%" height="1rem" />
-          <SkeletonChoiceRow width="50%" />
-          <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+    <>
+      <s-section>
+        <div role="status" aria-label="Loading settings">
+          <s-stack direction="block" gap="base">
+            <SkeletonBone width="20%" height="1rem" />
+            <SkeletonChoiceRow width="50%" />
+            <s-grid
+              gridTemplateColumns="@container (inline-size > 500px) 1fr 1fr, 1fr"
+              gap="base"
+            >
+              <SkeletonField />
+              <SkeletonField />
+              <SkeletonField />
+              <SkeletonField />
+            </s-grid>
             <SkeletonField />
-            <SkeletonField />
-            <SkeletonField />
-            <SkeletonField />
-          </s-grid>
-          <SkeletonField />
-          <SkeletonBone height="120px" radius="8px" />
-        </s-stack>
-      </div>
-    </s-section>
+          </s-stack>
+        </div>
+      </s-section>
+      <s-section slot="aside" heading="Preview">
+        <SkeletonBone height="120px" radius="8px" />
+      </s-section>
+    </>
   );
 }
 
@@ -116,7 +126,10 @@ export function ContentSkeleton() {
           <s-stack direction="block" gap="base">
             <SkeletonBone width="15%" height="1rem" />
             <SkeletonField />
-            <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+            <s-grid
+              gridTemplateColumns="@container (inline-size > 500px) 1fr 1fr, 1fr"
+              gap="base"
+            >
               <SkeletonField />
               <SkeletonField />
             </s-grid>
@@ -131,8 +144,10 @@ export function ContentSkeleton() {
           <SkeletonBone width="25%" height="1rem" />
           <SkeletonField />
           <SkeletonField />
-          <SkeletonBone height="120px" radius="8px" />
         </s-stack>
+      </s-section>
+      <s-section slot="aside" heading="Preview">
+        <SkeletonBone height="120px" radius="8px" />
       </s-section>
     </>
   );

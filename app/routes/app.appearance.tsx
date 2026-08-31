@@ -130,12 +130,17 @@ function AppearanceForm({ data: { form, texts } }: { data: AppearanceData }) {
           <s-switch
             label="Match my theme automatically"
             checked={values.autoMatchTheme}
-            onChange={(e) => setValue("autoMatchTheme", e.currentTarget.checked)}
+            onChange={(e) =>
+              setValue("autoMatchTheme", e.currentTarget.checked)
+            }
             details="Uses your theme's colors and font. Turn off to pick your own colors."
           />
 
           {!values.autoMatchTheme && (
-            <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+            <s-grid
+              gridTemplateColumns="@container (inline-size > 500px) 1fr 1fr, 1fr"
+              gap="base"
+            >
               <s-color-field
                 label="Banner background"
                 value={values.bgColor}
@@ -178,21 +183,25 @@ function AppearanceForm({ data: { form, texts } }: { data: AppearanceData }) {
             <s-option value="card-left">Card — bottom left</s-option>
             <s-option value="card-right">Card — bottom right</s-option>
           </s-select>
-
-          <BannerPreview
-            autoMatchTheme={values.autoMatchTheme}
-            bgColor={values.bgColor}
-            textColor={values.textColor}
-            acceptBgColor={values.acceptBgColor}
-            acceptTextColor={values.acceptTextColor}
-            position={values.position}
-            bannerText={texts.bannerText}
-            acceptLabel={texts.acceptLabel}
-            declineLabel={texts.declineLabel}
-            prefsLabel={texts.prefsLabel}
-            hasPolicyLink={texts.hasPolicyLink}
-          />
         </s-stack>
+      </s-section>
+
+      {/* Aside so the preview stays beside the controls on desktop; Polaris
+          stacks it below them on narrow screens. */}
+      <s-section slot="aside" heading="Preview">
+        <BannerPreview
+          autoMatchTheme={values.autoMatchTheme}
+          bgColor={values.bgColor}
+          textColor={values.textColor}
+          acceptBgColor={values.acceptBgColor}
+          acceptTextColor={values.acceptTextColor}
+          position={values.position}
+          bannerText={texts.bannerText}
+          acceptLabel={texts.acceptLabel}
+          declineLabel={texts.declineLabel}
+          prefsLabel={texts.prefsLabel}
+          hasPolicyLink={texts.hasPolicyLink}
+        />
       </s-section>
     </>
   );
