@@ -42,9 +42,11 @@ function AdminNavigation() {
   useEffect(() => {
     const handleNavigate = (event: Event) => {
       const href = (event.target as Element | null)?.getAttribute("href");
-      if (href) {
-        navigate(href);
-      }
+      if (!href) return;
+      // "/" is the marketing splash, which asks for a shop domain and must
+      // never render inside the admin. A client-side navigation there carries
+      // no shop parameter for the loader to redirect on, so map it here.
+      navigate(href === "/" ? "/app" : href);
     };
 
     document.addEventListener("shopify:navigate", handleNavigate);

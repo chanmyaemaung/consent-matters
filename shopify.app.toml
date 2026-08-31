@@ -2,7 +2,7 @@
 
 client_id = "bf8394145f6e6967e5cef51ba50aaeb6"
 name = "Consent Matters"
-application_url = "https://consent-matters.myanmarnode.com"
+application_url = "https://consent-matters.myanmarnode.com/app"
 embedded = true
 
 [access_scopes]
