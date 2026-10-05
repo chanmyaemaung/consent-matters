@@ -8,6 +8,11 @@ import { Await, useFetcher, useLoaderData, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import {
+  disableShopifyBanner,
+  getShopifyBannerEnabled,
+  type AdminGraphqlClient,
+} from "../services";
 import { dismissOnboarding, getSettings } from "../models";
 import { handleSettingsAction } from "../lib/settings-action.server";
 import { HomeSkeleton, SettingsLoadError } from "../components";
@@ -62,29 +67,47 @@ const LAYOUT_LABELS: Record<string, string> = {
   "card-right": "Card · right",
 };
 
-async function loadHomeSettings(shop: string) {
-  const settings = await getSettings(shop);
+async function loadHomeSettings(admin: AdminGraphqlClient) {
+  const [settings, shopifyBannerEnabled] = await Promise.all([
+    getSettings(admin),
+    getShopifyBannerEnabled(admin),
+  ]);
   return {
     ...settings,
     countries: JSON.parse(settings.countries) as string[],
+    shopifyBannerEnabled,
   };
 }
 
 type HomeSettings = Awaited<ReturnType<typeof loadHomeSettings>>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   // Not awaited — streams after the shell so the skeleton can paint first.
-  return { settings: loadHomeSettings(session.shop), shop: session.shop };
+  return { settings: loadHomeSettings(admin), shop: session.shop };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const cloned = request.clone();
   const formData = await cloned.formData();
   if (formData.get("intent") === "dismissOnboarding") {
-    const { session } = await authenticate.admin(request);
-    await dismissOnboarding(session.shop);
+    const { admin } = await authenticate.admin(request);
+    await dismissOnboarding(admin);
     return { ok: true as const };
+  }
+  if (formData.get("intent") === "disableShopifyBanner") {
+    const { admin } = await authenticate.admin(request);
+    try {
+      await disableShopifyBanner(admin);
+      return { ok: true as const, toast: "Shopify's cookie banner turned off" };
+    } catch (error) {
+      return {
+        ok: false as const,
+        syncError: `Couldn't turn off Shopify's cookie banner: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
   }
   return handleSettingsAction(request, (fd) => ({
     bannerEnabled: fd.get("bannerEnabled") === "true",
@@ -195,7 +218,10 @@ function HomeStatus({
   const shopify = useAppBridge();
 
   const themeEditorUrl = `https://${shop}/admin/themes/current/editor?context=apps`;
-  const privacySettingsUrl = `https://${shop}/admin/settings/customer_privacy`;
+  // Shopify moved Customer privacy to /settings/privacy; the old
+  // /settings/customer_privacy path now 404s. shopify:// navigates inside
+  // the admin, so the link doesn't depend on the store's domain format.
+  const privacySettingsUrl = "shopify://admin/settings/privacy";
 
   const syncError =
     (fetcher.data && "syncError" in fetcher.data && fetcher.data.syncError) ||
@@ -203,9 +229,19 @@ function HomeStatus({
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.ok) {
-      shopify.toast.show("Saved");
+      shopify.toast.show(
+        "toast" in fetcher.data ? fetcher.data.toast : "Saved",
+      );
     }
   }, [fetcher.state, fetcher.data, shopify]);
+
+  // Shopify's own banner on top of ours means visitors see two banners.
+  const disablingShopifyBanner =
+    fetcher.formData?.get("intent") === "disableShopifyBanner";
+  const shopifyBannerOn =
+    settings.shopifyBannerEnabled === true && !disablingShopifyBanner;
+  const turnOffShopifyBanner = () =>
+    fetcher.submit({ intent: "disableShopifyBanner" }, { method: "POST" });
 
   const optimisticEnabled = fetcher.formData
     ? fetcher.formData.get("bannerEnabled") === "true"
@@ -215,15 +251,16 @@ function HomeStatus({
   // actually switched on, rather than only telling merchants to go do it.
   const embedEnabled = useAppEmbedEnabled(shopify);
   const needsEmbed = optimisticEnabled && embedEnabled === false;
+  const needsAction = needsEmbed || (optimisticEnabled && shopifyBannerOn);
 
   const statusLabel = !optimisticEnabled
     ? "Off"
-    : needsEmbed
+    : needsAction
       ? "Action needed"
       : "Live";
   const statusTone = !optimisticEnabled
     ? "neutral"
-    : needsEmbed
+    : needsAction
       ? "warning"
       : "success";
 
@@ -271,9 +308,17 @@ function HomeStatus({
               in your theme editor
             </s-list-item>
             <s-list-item>
-              <s-link href={privacySettingsUrl} target="_blank">
-                Turn off Shopify&apos;s built-in cookie banner
-              </s-link>
+              {settings.shopifyBannerEnabled === false ? (
+                "Shopify's built-in cookie banner is off — done"
+              ) : settings.shopifyBannerEnabled === true ? (
+                <s-link onClick={turnOffShopifyBanner}>
+                  Turn off Shopify&apos;s built-in cookie banner
+                </s-link>
+              ) : (
+                <s-link href={privacySettingsUrl}>
+                  Turn off Shopify&apos;s built-in cookie banner
+                </s-link>
+              )}
             </s-list-item>
           </s-ordered-list>
         </s-banner>
@@ -284,7 +329,7 @@ function HomeStatus({
           <s-stack direction="inline" gap="base" alignItems="center">
             <s-icon
               type={
-                optimisticEnabled && !needsEmbed
+                optimisticEnabled && !needsAction
                   ? "shield-check-mark"
                   : "shield-none"
               }
@@ -306,7 +351,7 @@ function HomeStatus({
           </s-stack>
 
           <s-grid
-            gridTemplateColumns="@container (inline-size > 700px) 1fr 1fr 1fr, 1fr"
+            gridTemplateColumns="@container (inline-size > 600px) 1fr 1fr, 1fr"
             gap="base"
           >
             <s-box padding="base" borderWidth="base" borderRadius="base">
@@ -346,6 +391,27 @@ function HomeStatus({
                   {LAYOUT_LABELS[settings.position] ?? settings.position}
                 </s-heading>
                 <s-link href="/app/appearance">Change</s-link>
+              </s-stack>
+            </s-box>
+            <s-box padding="base" borderWidth="base" borderRadius="base">
+              <s-stack direction="block" gap="small-300">
+                <s-text color="subdued">Shopify&apos;s cookie banner</s-text>
+                <s-heading>
+                  {settings.shopifyBannerEnabled === null
+                    ? "Check manually"
+                    : shopifyBannerOn
+                      ? "On — visitors see two banners"
+                      : "Off"}
+                </s-heading>
+                {shopifyBannerOn ? (
+                  <s-link onClick={turnOffShopifyBanner}>Turn it off</s-link>
+                ) : settings.shopifyBannerEnabled === null ? (
+                  <s-link href={privacySettingsUrl}>
+                    Open privacy settings
+                  </s-link>
+                ) : (
+                  <s-text color="subdued">Only our banner shows</s-text>
+                )}
               </s-stack>
             </s-box>
           </s-grid>

@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { Outlet, useNavigate, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
@@ -13,10 +12,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-  // App Bridge itself is loaded from the document head in root.tsx, so this
-  // provider only contributes the Polaris web components script.
+  // App Bridge and Polaris load from the document head in root.tsx.
   return (
-    <AppProvider embedded={false}>
+    <>
       <AdminNavigation />
       <SessionTokenPing />
       <s-app-nav>
@@ -24,17 +22,18 @@ export default function App() {
         <s-link href="/app/targeting">Targeting</s-link>
         <s-link href="/app/appearance">Appearance</s-link>
         <s-link href="/app/content">Content</s-link>
+        <s-link href="/app/languages">Languages</s-link>
         <s-link href="/app/support">Support</s-link>
       </s-app-nav>
       <Outlet />
-    </AppProvider>
+    </>
   );
 }
 
 /**
  * Turns App Bridge navigation events into client-side React Router
- * navigations. AppProvider does this itself when it renders the App Bridge
- * script, which it no longer does here.
+ * navigations — the job the library's AppProvider would do, which this app
+ * doesn't render (see root.tsx).
  */
 function AdminNavigation() {
   const navigate = useNavigate();
@@ -43,10 +42,15 @@ function AdminNavigation() {
     const handleNavigate = (event: Event) => {
       const href = (event.target as Element | null)?.getAttribute("href");
       if (!href) return;
+      // App Bridge may send a path or a full URL (the app URL itself when the
+      // merchant clicks the app in the admin nav).
+      const url = new URL(href, window.location.origin);
+      if (url.origin !== window.location.origin) return;
       // "/" is the marketing splash, which asks for a shop domain and must
-      // never render inside the admin. A client-side navigation there carries
-      // no shop parameter for the loader to redirect on, so map it here.
-      navigate(href === "/" ? "/app" : href);
+      // never render inside the admin. Dev previews point the app URL at the
+      // tunnel root, so this happens on every click there.
+      const path = url.pathname === "/" ? "/app" : url.pathname;
+      navigate(`${path}${url.search}${url.hash}`);
     };
 
     document.addEventListener("shopify:navigate", handleNavigate);

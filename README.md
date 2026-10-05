@@ -29,6 +29,10 @@ find it.*
   custom; bar and card layouts with a live preview
 - ✍️ **Every word is yours** — banner and dialog texts are editable with
   bold, italics, and links
+- 🌍 **Speaks your visitors' language** — follows the storefront language,
+  with built-in translations for 11 languages and your own per language
+- 🔁 **No double banners** — spots Shopify's own cookie banner and switches
+  it off in one click
 - ⚡ **Zero speed impact** — a tiny script, no storefront server calls
 - 🌐 **Honors Global Privacy Control** automatically
 - 💯 **Free forever** — every feature included, no plans, no trials

@@ -33,5 +33,6 @@ pnpm-lock.yaml
 .playwright-mcp/
 !docs/brand/**/*.png
 !assets/**/*.png
+!public/**/*.png
 
 .vercel

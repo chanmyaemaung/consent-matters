@@ -1,9 +1,15 @@
-import type { Settings } from "@prisma/client";
-import db from "../db.server";
 import { richTextToPlain, sanitizeRichText } from "../services/sanitize.server";
+import {
+  readSettingsMetafields,
+  writeSettingsMetafields,
+  type AdminGraphqlClient,
+} from "../services/metafield.server";
 import {
   POSITIONS,
   TARGETING_MODES,
+  TRANSLATABLE_FIELDS,
+  type Settings,
+  type TranslatedTexts,
   type SettingsErrors,
   type SettingsInput,
 } from "../types";
@@ -14,10 +20,19 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
 const URL_PATTERN = /^https?:\/\/.+/i;
 
-export async function getSettings(shop: string): Promise<Settings> {
-  const existing = await db.settings.findUnique({ where: { shop } });
-  if (existing) return existing;
-  return db.settings.create({ data: { shop } });
+/**
+ * Settings are stored in app-owned shop metafields — no database. On a
+ * fresh install the defaults are published once so the banner works before
+ * the merchant ever presses Save.
+ */
+export async function getSettings(
+  admin: AdminGraphqlClient,
+): Promise<Settings> {
+  const { shopId, settings, exists } = await readSettingsMetafields(admin);
+  if (!exists) {
+    await writeSettingsMetafields(admin, shopId, settings);
+  }
+  return settings;
 }
 
 /**
@@ -100,28 +115,35 @@ export function validateSettings(
   return errors;
 }
 
-/** Persists only the provided fields; returns the full updated row. */
+/**
+ * Merges only the provided fields into the stored settings and publishes
+ * the result; returns the full updated settings.
+ */
 export async function savePartialSettings(
-  shop: string,
+  admin: AdminGraphqlClient,
   input: Partial<SettingsInput>,
 ): Promise<Settings> {
-  const data: Record<string, unknown> = {};
+  const data: Partial<Settings> = {};
 
-  if (input.bannerEnabled !== undefined) data.bannerEnabled = input.bannerEnabled;
-  if (input.targetingMode !== undefined) data.targetingMode = input.targetingMode;
+  if (input.bannerEnabled !== undefined)
+    data.bannerEnabled = input.bannerEnabled;
+  if (input.targetingMode !== undefined)
+    data.targetingMode = input.targetingMode;
   if (input.countries !== undefined)
     data.countries = JSON.stringify(input.countries);
   if (input.autoMatchTheme !== undefined)
     data.autoMatchTheme = input.autoMatchTheme;
   if (input.bgColor !== undefined) data.bgColor = input.bgColor;
   if (input.textColor !== undefined) data.textColor = input.textColor;
-  if (input.acceptBgColor !== undefined) data.acceptBgColor = input.acceptBgColor;
+  if (input.acceptBgColor !== undefined)
+    data.acceptBgColor = input.acceptBgColor;
   if (input.acceptTextColor !== undefined)
     data.acceptTextColor = input.acceptTextColor;
   if (input.position !== undefined) data.position = input.position;
   if (input.bannerText !== undefined)
     data.bannerText = sanitizeRichText(input.bannerText);
-  if (input.acceptLabel !== undefined) data.acceptLabel = input.acceptLabel.trim();
+  if (input.acceptLabel !== undefined)
+    data.acceptLabel = input.acceptLabel.trim();
   if (input.declineLabel !== undefined)
     data.declineLabel = input.declineLabel.trim();
   if (input.prefsLabel !== undefined) data.prefsLabel = input.prefsLabel.trim();
@@ -136,19 +158,63 @@ export async function savePartialSettings(
   if (input.saveLabel !== undefined) data.saveLabel = input.saveLabel.trim();
   if (input.acceptAllLabel !== undefined)
     data.acceptAllLabel = input.acceptAllLabel.trim();
+  if (input.gcmAdsDataRedaction !== undefined)
+    data.gcmAdsDataRedaction = input.gcmAdsDataRedaction;
+  if (input.gcmUrlPassthrough !== undefined)
+    data.gcmUrlPassthrough = input.gcmUrlPassthrough;
 
-  await getSettings(shop);
-  return db.settings.update({ where: { shop }, data });
+  return updateSettings(admin, data);
 }
 
-export async function dismissOnboarding(shop: string): Promise<void> {
-  await getSettings(shop);
-  await db.settings.update({
-    where: { shop },
-    data: { onboardingDismissed: true },
-  });
+const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/;
+
+/**
+ * Replaces one language's translations. Empty fields are dropped so the
+ * storefront falls back to the built-in or default text.
+ */
+export async function saveTranslation(
+  admin: AdminGraphqlClient,
+  language: string,
+  texts: TranslatedTexts,
+): Promise<Settings> {
+  const code = language.toLowerCase();
+  if (!LANGUAGE_CODE_PATTERN.test(code)) {
+    throw new Error(`Invalid language code: ${language}`);
+  }
+
+  const clean: TranslatedTexts = {};
+  for (const field of TRANSLATABLE_FIELDS) {
+    const raw = texts[field.key];
+    if (!raw) continue;
+    const value = field.rich ? sanitizeRichText(raw) : raw.trim();
+    const hasText = field.rich
+      ? Boolean(richTextToPlain(value))
+      : Boolean(value);
+    if (hasText) clean[field.key] = value;
+  }
+
+  const { shopId, settings } = await readSettingsMetafields(admin);
+  const translations = { ...settings.translations };
+  if (Object.keys(clean).length > 0) translations[code] = clean;
+  else delete translations[code];
+
+  const updated = { ...settings, translations };
+  await writeSettingsMetafields(admin, shopId, updated);
+  return updated;
 }
 
-export async function deleteSettings(shop: string): Promise<void> {
-  await db.settings.deleteMany({ where: { shop } });
+export async function dismissOnboarding(
+  admin: AdminGraphqlClient,
+): Promise<void> {
+  await updateSettings(admin, { onboardingDismissed: true });
+}
+
+async function updateSettings(
+  admin: AdminGraphqlClient,
+  data: Partial<Settings>,
+): Promise<Settings> {
+  const { shopId, settings } = await readSettingsMetafields(admin);
+  const updated = { ...settings, ...data };
+  await writeSettingsMetafields(admin, shopId, updated);
+  return updated;
 }

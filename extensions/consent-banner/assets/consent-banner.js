@@ -27,6 +27,129 @@
 
   var cfg = null;
   var priorConsent = {};
+
+  // Fixed storefront strings the merchant doesn't edit, by base language.
+  // Merchant-editable texts arrive per language in cfg.tr instead.
+  var UI_STRINGS = {
+    en: {
+      ess: ['Essential', 'Required for checkout, cart, and security.'],
+      ana: ['Analytics', 'Helps the store understand how visitors use it.'],
+      mkt: ['Marketing', 'Used for advertising and campaign measurement.'],
+      per: ['Personalization', 'Remembers your choices, like language or region.'],
+      learn: 'Learn more',
+      label: 'Cookie consent'
+    },
+    de: {
+      ess: ['Notwendig', 'Erforderlich für Kasse, Warenkorb und Sicherheit.'],
+      ana: ['Statistik', 'Hilft dem Shop zu verstehen, wie Besucher ihn nutzen.'],
+      mkt: ['Marketing', 'Wird für Werbung und Kampagnenmessung verwendet.'],
+      per: ['Personalisierung', 'Merkt sich deine Auswahl, z. B. Sprache oder Region.'],
+      learn: 'Mehr erfahren',
+      label: 'Cookie-Zustimmung'
+    },
+    fr: {
+      ess: ['Essentiels', 'Nécessaires au paiement, au panier et à la sécurité.'],
+      ana: ['Statistiques', 'Aident la boutique à comprendre comment elle est utilisée.'],
+      mkt: ['Marketing', 'Utilisés pour la publicité et la mesure des campagnes.'],
+      per: ['Personnalisation', 'Mémorisent vos choix, comme la langue ou la région.'],
+      learn: 'En savoir plus',
+      label: 'Consentement aux cookies'
+    },
+    es: {
+      ess: ['Esenciales', 'Necesarias para el pago, el carrito y la seguridad.'],
+      ana: ['Analíticas', 'Ayudan a la tienda a entender cómo la usan los visitantes.'],
+      mkt: ['Marketing', 'Se usan para publicidad y medición de campañas.'],
+      per: ['Personalización', 'Recuerdan tus elecciones, como el idioma o la región.'],
+      learn: 'Más información',
+      label: 'Consentimiento de cookies'
+    },
+    it: {
+      ess: ['Essenziali', 'Necessari per checkout, carrello e sicurezza.'],
+      ana: ['Statistiche', 'Aiutano il negozio a capire come viene utilizzato.'],
+      mkt: ['Marketing', 'Usati per la pubblicità e la misurazione delle campagne.'],
+      per: ['Personalizzazione', 'Ricordano le tue scelte, come lingua o regione.'],
+      learn: 'Scopri di più',
+      label: 'Consenso ai cookie'
+    },
+    nl: {
+      ess: ['Essentieel', 'Nodig voor afrekenen, winkelwagen en beveiliging.'],
+      ana: ['Analyse', 'Helpt de winkel te begrijpen hoe bezoekers hem gebruiken.'],
+      mkt: ['Marketing', 'Gebruikt voor advertenties en campagnemeting.'],
+      per: ['Personalisatie', 'Onthoudt je keuzes, zoals taal of regio.'],
+      learn: 'Meer informatie',
+      label: 'Cookietoestemming'
+    },
+    pt: {
+      ess: ['Essenciais', 'Necessários para checkout, carrinho e segurança.'],
+      ana: ['Análise', 'Ajudam a loja a perceber como os visitantes a utilizam.'],
+      mkt: ['Marketing', 'Usados para publicidade e medição de campanhas.'],
+      per: ['Personalização', 'Lembram as suas escolhas, como idioma ou região.'],
+      learn: 'Saber mais',
+      label: 'Consentimento de cookies'
+    },
+    pl: {
+      ess: ['Niezbędne', 'Wymagane do kasy, koszyka i bezpieczeństwa.'],
+      ana: ['Analityczne', 'Pomagają sklepowi zrozumieć, jak korzystają z niego odwiedzający.'],
+      mkt: ['Marketingowe', 'Służą do reklam i mierzenia kampanii.'],
+      per: ['Personalizacja', 'Zapamiętują Twoje wybory, np. język lub region.'],
+      learn: 'Dowiedz się więcej',
+      label: 'Zgoda na pliki cookie'
+    },
+    sv: {
+      ess: ['Nödvändiga', 'Krävs för kassa, varukorg och säkerhet.'],
+      ana: ['Statistik', 'Hjälper butiken att förstå hur besökare använder den.'],
+      mkt: ['Marknadsföring', 'Används för annonser och kampanjmätning.'],
+      per: ['Anpassning', 'Kommer ihåg dina val, som språk eller region.'],
+      learn: 'Läs mer',
+      label: 'Cookie-samtycke'
+    },
+    da: {
+      ess: ['Nødvendige', 'Påkrævet til betaling, kurv og sikkerhed.'],
+      ana: ['Statistik', 'Hjælper butikken med at forstå, hvordan den bruges.'],
+      mkt: ['Marketing', 'Bruges til annoncering og kampagnemåling.'],
+      per: ['Personalisering', 'Husker dine valg, f.eks. sprog eller region.'],
+      learn: 'Læs mere',
+      label: 'Cookie-samtykke'
+    },
+    fi: {
+      ess: ['Välttämättömät', 'Tarvitaan kassaan, ostoskoriin ja tietoturvaan.'],
+      ana: ['Analytiikka', 'Auttaa kauppaa ymmärtämään, miten kävijät sitä käyttävät.'],
+      mkt: ['Markkinointi', 'Käytetään mainontaan ja kampanjoiden mittaamiseen.'],
+      per: ['Personointi', 'Muistaa valintasi, kuten kielen tai alueen.'],
+      learn: 'Lue lisää',
+      label: 'Evästesuostumus'
+    }
+  };
+  var ui = UI_STRINGS.en;
+
+  function visitorLanguage() {
+    var lang =
+      (window.Shopify && window.Shopify.locale) ||
+      document.documentElement.lang ||
+      'en';
+    return String(lang).toLowerCase();
+  }
+
+  /**
+   * Layers the visitor's language over the main texts: the plain language
+   * first ("de"), then the regional one ("de-ch") on top.
+   */
+  function localize(config) {
+    var lang = visitorLanguage();
+    var base = lang.split('-')[0];
+    ui = UI_STRINGS[base] || UI_STRINGS.en;
+    var tr = config.tr || {};
+    var out = {};
+    var key;
+    for (key in config) out[key] = config[key];
+    var layers = [tr[base], base !== lang ? tr[lang] : null];
+    for (var i = 0; i < layers.length; i++) {
+      if (!layers[i]) continue;
+      for (key in layers[i]) out[key] = layers[i][key];
+    }
+    dbg('language', lang);
+    return out;
+  }
   var signalsSeeded = false;
   var styleInjected = false;
   var bannerEl = null;
@@ -36,7 +159,7 @@
   // --- Blocking signals ---
   // Seeded before merchant tags can run; granted only after consent.
 
-  function seedSignals() {
+  function seedSignals(config) {
     if (signalsSeeded) return;
     signalsSeeded = true;
     // The liquid embed seeds synchronously before theme tags run; this
@@ -56,6 +179,8 @@
       analytics_storage: 'denied',
       wait_for_update: 500
     });
+    if (config && config.adr) window.gtag('set', 'ads_data_redaction', true);
+    if (config && config.up) window.gtag('set', 'url_passthrough', true);
 
     if (!window.fbq) {
       var fbqStub = (window.fbq = function () {
@@ -357,7 +482,7 @@
     modal.className = 'cm-modal';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-label', 'Privacy preferences');
+    modal.setAttribute('aria-label', cfg.mt || 'Privacy preferences');
     modal.style.background = t.bg;
     modal.style.color = t.tx;
 
@@ -394,22 +519,10 @@
       return input;
     }
 
-    row('Essential', 'Required for checkout, cart, and security.', true, true);
-    var analyticsInput = row(
-      'Analytics',
-      'Helps the store understand how visitors use it.',
-      current.analytics !== 'no'
-    );
-    var marketingInput = row(
-      'Marketing',
-      'Used for advertising and campaign measurement.',
-      current.marketing !== 'no'
-    );
-    var prefsInput = row(
-      'Personalization',
-      'Remembers your choices, like language or region.',
-      current.preferences !== 'no'
-    );
+    row(ui.ess[0], ui.ess[1], true, true);
+    var analyticsInput = row(ui.ana[0], ui.ana[1], current.analytics !== 'no');
+    var marketingInput = row(ui.mkt[0], ui.mkt[1], current.marketing !== 'no');
+    var prefsInput = row(ui.per[0], ui.per[1], current.preferences !== 'no');
 
     var actions = document.createElement('div');
     actions.className = 'cm-actions';
@@ -474,7 +587,7 @@
     bannerEl.className = 'cm-root cm-' + pos;
     bannerEl.setAttribute('role', 'dialog');
     bannerEl.setAttribute('aria-live', 'polite');
-    bannerEl.setAttribute('aria-label', 'Cookie consent');
+    bannerEl.setAttribute('aria-label', ui.label);
     bannerEl.style.background = t.bg;
     bannerEl.style.color = t.tx;
 
@@ -494,7 +607,7 @@
       msg.appendChild(document.createTextNode(' '));
       var learn = document.createElement('a');
       learn.href = cfg.link;
-      learn.textContent = 'Learn more';
+      learn.textContent = ui.learn;
       msg.appendChild(learn);
     }
     inner.appendChild(msg);
@@ -607,7 +720,7 @@
   }
 
   function start(config) {
-    cfg = config;
+    cfg = localize(config);
     dbg('config loaded', cfg);
     whenPrivacyReady(main);
   }
@@ -629,7 +742,7 @@
       dbg('banner disabled in app settings');
       return;
     }
-    seedSignals();
+    seedSignals(inline);
     start(inline);
   } else if (window.fetch) {
     // Config unknown: block first (privacy-safe), resolve via proxy.

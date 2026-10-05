@@ -8,6 +8,7 @@ import { Await, useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import type { AdminGraphqlClient } from "../services";
 import { getSettings } from "../models";
 import { handleSettingsAction } from "../lib/settings-action.server";
 import { useSettingsForm } from "../hooks/useSettingsForm";
@@ -23,26 +24,30 @@ import {
 } from "../data/countries";
 import type { SettingsErrors } from "../types";
 
-async function loadTargetingData(shop: string) {
-  const settings = await getSettings(shop);
+async function loadTargetingData(admin: AdminGraphqlClient) {
+  const settings = await getSettings(admin);
   return {
     targetingMode: settings.targetingMode,
     countries: JSON.parse(settings.countries) as string[],
+    gcmAdsDataRedaction: settings.gcmAdsDataRedaction,
+    gcmUrlPassthrough: settings.gcmUrlPassthrough,
   };
 }
 
 type TargetingData = Awaited<ReturnType<typeof loadTargetingData>>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
   // Not awaited — streams after the shell so the skeleton can paint first.
-  return { settings: loadTargetingData(session.shop) };
+  return { settings: loadTargetingData(admin) };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) =>
   handleSettingsAction(request, (fd) => ({
     targetingMode: String(fd.get("targetingMode") ?? "auto"),
     countries: JSON.parse(String(fd.get("countries") ?? "[]")) as string[],
+    gcmAdsDataRedaction: fd.get("gcmAdsDataRedaction") === "true",
+    gcmUrlPassthrough: fd.get("gcmUrlPassthrough") === "true",
   }));
 
 export default function Targeting() {
@@ -80,6 +85,8 @@ function TargetingForm({ data: initial }: { data: TargetingData }) {
       {
         targetingMode: values.targetingMode,
         countries: JSON.stringify(values.countries),
+        gcmAdsDataRedaction: String(values.gcmAdsDataRedaction),
+        gcmUrlPassthrough: String(values.gcmUrlPassthrough),
       },
       { method: "POST" },
     );
@@ -193,6 +200,31 @@ function TargetingForm({ data: initial }: { data: TargetingData }) {
             </s-stack>
           </s-stack>
         )}
+      </s-section>
+
+      <s-section heading="Google Consent Mode">
+        <s-stack direction="block" gap="base">
+          <s-paragraph color="subdued">
+            Optional settings for Google Ads. They only apply while a visitor
+            hasn&apos;t allowed marketing cookies.
+          </s-paragraph>
+          <s-checkbox
+            label="Redact ad data"
+            details="Google tags strip ad click identifiers from requests instead of sending them."
+            checked={values.gcmAdsDataRedaction}
+            onChange={(e) =>
+              setValue("gcmAdsDataRedaction", e.currentTarget.checked)
+            }
+          />
+          <s-checkbox
+            label="Pass ad click info through URLs"
+            details="Keeps ad click info in page links so conversions can still be measured without cookies."
+            checked={values.gcmUrlPassthrough}
+            onChange={(e) =>
+              setValue("gcmUrlPassthrough", e.currentTarget.checked)
+            }
+          />
+        </s-stack>
       </s-section>
     </>
   );

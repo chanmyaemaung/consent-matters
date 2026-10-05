@@ -1,4 +1,3 @@
-import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData } from "react-router";
@@ -27,9 +26,9 @@ export default function Auth() {
   const { errors } = actionData || loaderData;
 
   return (
-    <AppProvider embedded={false}>
-      <s-page>
-        <Form method="post">
+    // Polaris loads from the document head (root.tsx covers /auth routes).
+    <s-page>
+      <Form method="post">
         <s-section heading="Log in">
           <s-text-field
             name="shop"
@@ -42,8 +41,7 @@ export default function Auth() {
           ></s-text-field>
           <s-button type="submit">Log in</s-button>
         </s-section>
-        </Form>
-      </s-page>
-    </AppProvider>
+      </Form>
+    </s-page>
   );
 }

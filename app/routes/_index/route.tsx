@@ -1,18 +1,44 @@
-import type { LoaderFunctionArgs } from "react-router";
+import type {
+  ClientLoaderFunctionArgs,
+  LoaderFunctionArgs,
+  MetaFunction,
+} from "react-router";
 import { redirect, Form, useLoaderData } from "react-router";
 
 import { login } from "../../shopify.server";
 
 import styles from "./styles.module.css";
 
+export const meta: MetaFunction = () => [{ title: "Consent Matters" }];
+
+// This page is the public splash with a shop-domain login. It must never
+// render inside the Shopify admin, so any embedded request goes to /app.
+function isEmbeddedRequest(request: Request, url: URL) {
+  return (
+    url.searchParams.has("shop") ||
+    url.searchParams.has("host") ||
+    url.searchParams.has("id_token") ||
+    url.searchParams.get("embedded") === "1" ||
+    request.headers.get("sec-fetch-dest") === "iframe"
+  );
+}
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
+  if (isEmbeddedRequest(request, url)) {
+    throw redirect(`/app${url.search}`);
   }
 
   return { showForm: Boolean(login) };
+};
+
+// Client-side navigations carry neither query params nor iframe headers.
+export const clientLoader = async ({
+  serverLoader,
+}: ClientLoaderFunctionArgs) => {
+  if (window.top !== window.self) throw redirect("/app");
+  return serverLoader<typeof loader>();
 };
 
 export default function App() {

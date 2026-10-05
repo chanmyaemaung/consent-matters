@@ -7,7 +7,9 @@ embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = ""
+# read_locales: list the store's languages for banner translations.
+# write_privacy_settings: show and switch off Shopify's own cookie banner.
+scopes = "read_locales,write_privacy_settings"
 
 [webhooks]
 api_version = "2026-10"

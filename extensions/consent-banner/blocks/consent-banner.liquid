@@ -34,6 +34,12 @@
     ad_personalization: 'denied', analytics_storage: 'denied',
     wait_for_update: 500
   });
+  {%- if cfg.adr == 1 %}
+  window.gtag('set', 'ads_data_redaction', true);
+  {%- endif %}
+  {%- if cfg.up == 1 %}
+  window.gtag('set', 'url_passthrough', true);
+  {%- endif %}
   if (!window.fbq) {
     var n = window.fbq = function(){ n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); };
     if (!window._fbq) window._fbq = n;

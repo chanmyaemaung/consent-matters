@@ -1,4 +1,14 @@
+import type { MetaFunction } from "react-router";
 import { useLoaderData } from "react-router";
+
+export const meta: MetaFunction = () => [
+  { title: "Privacy Policy — Consent Matters" },
+  {
+    name: "description",
+    content:
+      "What the Consent Matters Shopify app stores, what it never collects, and how data is deleted.",
+  },
+];
 
 // Public privacy policy — required for the Shopify App Store listing.
 // Served outside the embedded admin, so no auth and no Polaris.
@@ -27,7 +37,7 @@ export default function Privacy() {
   return (
     <main style={styles.page}>
       <h1 style={styles.h1}>Privacy Policy — Consent Matters</h1>
-      <p style={styles.meta}>Effective date: August 18, 2026</p>
+      <p style={styles.meta}>Effective date: October 5, 2026</p>
 
       <p>
         Consent Matters is a cookie-consent app for Shopify stores. It was
@@ -39,16 +49,18 @@ export default function Privacy() {
       <h2 style={styles.h2}>What the app stores</h2>
       <ul>
         <li>
-          <strong>Your shop domain</strong> and the{" "}
-          <strong>banner settings</strong> you configure (colors, texts,
-          layout, targeting choices).
+          The <strong>banner settings</strong> you configure (colors, texts,
+          translations, layout, targeting choices) — saved inside your own
+          Shopify store as app data, not on the app&apos;s servers.
         </li>
         <li>
-          An <strong>encrypted API session</strong> issued by Shopify so the
-          app can save those settings to your store.
+          A short-lived <strong>API session</strong> issued by Shopify, held
+          only in the server&apos;s memory while you use the app admin.
         </li>
       </ul>
-      <p>That is the complete list — per shop, nothing else.</p>
+      <p>
+        That is the complete list. The app has no database of its own.
+      </p>
 
       <h2 style={styles.h2}>What the app never stores</h2>
       <ul>
@@ -66,26 +78,29 @@ export default function Privacy() {
         </li>
         <li>
           <strong>No customer records</strong> — the app requests no access
-          to orders, customers, or store content.
+          to orders, customers, or store content. It only reads your
+          store&apos;s languages (to translate the banner) and your
+          Shopify cookie banner setting (so it can show whether
+          Shopify&apos;s own banner is also on, and switch it off when you
+          click the button to do so).
         </li>
       </ul>
 
       <h2 style={styles.h2}>Data deletion</h2>
       <p>
-        Uninstalling the app automatically deletes the shop&apos;s settings
-        and session from the database. The app also subscribes to
+        Uninstalling the app makes Shopify delete the app&apos;s settings
+        from your store automatically. The app also subscribes to
         Shopify&apos;s mandatory GDPR webhooks
         (customers/data_request, customers/redact, shop/redact) and honors
         them: since no customer data is stored there is nothing to return
-        for customer requests, and a shop redaction removes every record
-        associated with that shop.
+        for customer requests, and the app keeps no shop records of its own
+        to remove.
       </p>
 
       <h2 style={styles.h2}>Infrastructure</h2>
       <p>
-        The app runs on Vercel (hosting) and Neon (database), both in the
-        United States (US East). These providers process data solely to
-        operate the service.
+        The app runs on Vercel (hosting) in the United States (US East),
+        which processes requests solely to operate the service.
       </p>
 
       <h2 style={styles.h2}>Contact</h2>

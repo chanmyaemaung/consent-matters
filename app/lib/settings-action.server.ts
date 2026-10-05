@@ -1,6 +1,5 @@
 import { authenticate } from "../shopify.server";
 import { savePartialSettings, validateSettings } from "../models";
-import { syncSettingsMetafield } from "../services";
 import type { SettingsInput } from "../types";
 
 export type SettingsActionResult =
@@ -10,13 +9,13 @@ export type SettingsActionResult =
 
 /**
  * Shared action for every settings page: parse the page's subset of
- * fields, validate, persist, and republish the storefront config.
+ * fields, validate, then persist to the shop metafields the storefront reads.
  */
 export async function handleSettingsAction(
   request: Request,
   parse: (formData: FormData) => Partial<SettingsInput>,
 ): Promise<SettingsActionResult> {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
   const formData = await request.formData();
   const input = parse(formData);
 
@@ -25,9 +24,8 @@ export async function handleSettingsAction(
     return { ok: false, errors };
   }
 
-  const saved = await savePartialSettings(session.shop, input);
   try {
-    await syncSettingsMetafield(admin, saved);
+    await savePartialSettings(admin, input);
   } catch (error) {
     return {
       ok: false,

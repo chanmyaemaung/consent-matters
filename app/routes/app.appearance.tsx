@@ -8,6 +8,7 @@ import { Await, useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import type { AdminGraphqlClient } from "../services";
 import { getSettings } from "../models";
 import { handleSettingsAction } from "../lib/settings-action.server";
 import { useSettingsForm } from "../hooks/useSettingsForm";
@@ -19,8 +20,8 @@ import {
 } from "../components";
 import type { SettingsErrors } from "../types";
 
-async function loadAppearanceData(shop: string) {
-  const s = await getSettings(shop);
+async function loadAppearanceData(admin: AdminGraphqlClient) {
+  const s = await getSettings(admin);
   return {
     form: {
       autoMatchTheme: s.autoMatchTheme,
@@ -43,9 +44,9 @@ async function loadAppearanceData(shop: string) {
 type AppearanceData = Awaited<ReturnType<typeof loadAppearanceData>>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
   // Not awaited — streams after the shell so the skeleton can paint first.
-  return { settings: loadAppearanceData(session.shop) };
+  return { settings: loadAppearanceData(admin) };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) =>
